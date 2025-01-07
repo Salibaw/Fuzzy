@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
+CORS(app, resources={r"/*": {"origins": "http://localhost:8080"}})
 
 # Inisialisasi variabel fuzzy
 permintaan = np.arange(1000, 5001, 1)
@@ -25,7 +25,7 @@ produksi_sedang = fuzz.trimf(produksi, [1000, 3500, 5000])
 produksi_besar = fuzz.trimf(produksi, [4000, 7000, 7000])
 produksi_tidak = fuzz.trimf(produksi, [0, 0, 0])
 
-print(permintaan_rendah)
+# print(permintaan_rendah)
 
 def hitung_produksi(permintaan_input, persediaan_input):
     # Hitung derajat keanggotaan
@@ -53,7 +53,7 @@ def hitung_produksi(permintaan_input, persediaan_input):
 
     alpha4 = min(mu_perm_sedang, mu_pers_minim)
     z4 = fuzz.defuzz(produksi, produksi_sedang, 'centroid')
-
+    
     alpha5 = min(mu_perm_sedang, mu_pers_sedang)
     z5 = fuzz.defuzz(produksi, produksi_kecil, 'centroid')
 
@@ -82,13 +82,13 @@ def hitung_produksi(permintaan_input, persediaan_input):
             'rendah': mu_perm_rendah,
             'sedang': mu_perm_sedang,
             'banyak': mu_perm_banyak,
-            'max_membership': max_mu_perm
+            # 'max_membership': max_mu_perm
         },
         'him_persediaan': {
             'minim': mu_pers_minim,
             'sedang': mu_pers_sedang,
             'banyak': mu_pers_banyak,
-            'max_membership': max_mu_pers
+            # 'max_membership': max_mu_pers
         },
         'alpha_rules': {
             'R1': alpha1, 'R2': alpha2, 'R3': alpha3,

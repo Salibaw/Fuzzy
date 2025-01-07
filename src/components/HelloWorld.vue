@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-600 via-indigo-500 to-purple-600 text-gray-800">
+  <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
     <div class="bg-white shadow-2xl rounded-2xl p-10 max-w-lg w-full transform transition-transform hover:scale-105">
       <h1 class="text-5xl font-extrabold text-center mb-8 text-indigo-600">Sistem Fuzzy Produksi</h1>
       <div class="flex flex-col gap-6">
@@ -27,12 +27,6 @@
         >
           Hitung Produksi
         </button>
-        <button
-          @click="resetForm"
-          class="bg-gray-300 text-gray-700 font-bold py-3 rounded-lg w-full mt-4 hover:bg-gray-400 transition-transform transform hover:scale-105 shadow-md"
-        >
-          Reset
-        </button>
       </div>
       <div v-if="production !== null" class="mt-8 text-center">
         <h2 class="text-2xl font-semibold text-gray-800">
@@ -40,10 +34,20 @@
           <span class="text-indigo-600 text-3xl font-bold">{{ production }}</span>
         </h2>
       </div>
-      <div v-if="production !== null" class="mt-10">
-        <canvas id="chart" width="400" height="200"></canvas>
-      </div>
     </div>
+    <div v-if="fuzzificationData && production !== null" class="bg-white shadow-lg rounded-lg p-6 max-w-4xl w-full mt-8">
+      <h1 class="text-3xl font-bold text-center text-indigo-600 mb-6">Chart Fuzzifikasi</h1>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h2 class="text-xl font-semibold text-gray-700 mb-4">Fuzzifikasi Permintaan</h2>
+          <canvas id="demandChart"></canvas>
+        </div>
+        <div>
+          <h2 class="text-xl font-semibold text-gray-700 mb-4">Fuzzifikasi Persediaan</h2>
+          <canvas id="stockChart"></canvas>
+        </div>
+      </div>
+    </div>    
   </div>
 </template>
 
@@ -54,49 +58,75 @@ Chart.register(...registerables);
 export default {
   data() {
     return {
-      stock: 0,
       demand: 0,
+      stock: 0,
       production: null,
-      chart: null,
+      fuzzificationData: null,
+      demandChart: null,
+      stockChart: null,
     };
   },
   methods: {
-    calculateProduction() {
-      const stockLevel = this.fuzzyStock(this.stock);
-      const demandLevel = this.fuzzyDemand(this.demand);
-      this.production = this.defuzzify(stockLevel, demandLevel);
-      this.updateChart();
-    },
-    fuzzyStock(stock) {
-      if (stock <= 300) return 'Minim';
-      else if (stock <= 400) return 'Sedang';
-      else return 'Banyak';
-    },
-    fuzzyDemand(demand) {
-      if (demand <= 3000) return 'Rendah';
-      else if (demand <= 4000) return 'Sedang';
-      else return 'Tinggi';
-    },
-    defuzzify(stockLevel, demandLevel) {
-      const productionRules = {
-        Minim: { Rendah: 'Kecil', Sedang: 'Tidak Produksi', Tinggi: 'Tidak Produksi' },
-        Sedang: { Rendah: 'Kecil', Sedang: 'Kecil', Tinggi: 'Tidak Produksi' },
-        Banyak: { Rendah: 'Sedang', Sedang: 'Kecil', Tinggi: 'Besar' },
-      };
+    async fetchFuzzificationData() {
+  try {
+    const response = await fetch('http://localhost:3000/fuzzification');
+    const data = await response.json();
+    this.fuzzificationData = data;
 
-      return productionRules[stockLevel][demandLevel];
-    },
-    initializeChart() {
-      const ctx = document.getElementById('chart').getContext('2d');
-      this.chart = new Chart(ctx, {
-        type: 'bar',
+    // Buat chart setelah data fuzzifikasi tersedia
+    this.createDemandChart();
+    this.createStockChart();
+  } catch (error) {
+    console.error('Error fetching fuzzification data:', error);
+  }
+},
+
+    async calculateProduction() {
+  try {
+    const response = await fetch('http://localhost:3000/prediksi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ permintaan: this.demand, persediaan: this.stock }),
+    });
+    const data = await response.json();
+    this.production = data.produksi;
+
+    // Ambil data fuzzifikasi setelah perhitungan
+    await this.fetchFuzzificationData();
+  } catch (error) {
+    console.error('Error:', error);
+  }
+},
+
+    createDemandChart() {
+      const ctx = document.getElementById('demandChart').getContext('2d');
+      const { range, rendah, sedang, banyak } = this.fuzzificationData.permintaan;
+
+      this.demandChart = new Chart(ctx, {
+        type: 'line',
         data: {
-          labels: ['Stok', 'Permintaan', 'Produksi'],
+          labels: range,
           datasets: [
             {
-              label: 'Nilai',
-              data: [this.stock, this.demand, 0],
-              backgroundColor: ['#4f46e5', '#9333ea', '#ec4899'],
+              label: 'Permintaan Rendah',
+              data: rendah,
+              borderColor: '#ef4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.2)',
+              fill: true,
+            },
+            {
+              label: 'Permintaan Sedang',
+              data: sedang,
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.2)',
+              fill: true,
+            },
+            {
+              label: 'Permintaan Banyak',
+              data: banyak,
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.2)',
+              fill: true,
             },
           ],
         },
@@ -104,30 +134,89 @@ export default {
           responsive: true,
           plugins: {
             legend: {
-              display: false,
+              position: 'top',
+            },
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: 'Jumlah Permintaan',
+              },
+            },
+            y: {
+              title: {
+                display: true,
+                text: 'Derajat Keanggotaan',
+              },
+              min: 0,
+              max: 1,
             },
           },
         },
       });
     },
-    updateChart() {
-      if (this.chart) {
-        this
-        
-        
-        .chart.data.datasets[0].data = [this.stock, this.demand, this.production || 0];
-        this.chart.update();
-      }
-    },
-    resetForm() {
-      this.stock = 0;
-      this.demand = 0;
-      this.production = null;
-      this.updateChart();
+    createStockChart() {
+      const ctx = document.getElementById('stockChart').getContext('2d');
+      const { range, minim, sedang, banyak } = this.fuzzificationData.persediaan;
+
+      this.stockChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: range,
+          datasets: [
+            {
+              label: 'Persediaan Minim',
+              data: minim,
+              borderColor: '#ef4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.2)',
+              fill: true,
+            },
+            {
+              label: 'Persediaan Sedang',
+              data: sedang,
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.2)',
+              fill: true,
+            },
+            {
+              label: 'Persediaan Banyak',
+              data: banyak,
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.2)',
+              fill: true,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'top',
+            },
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: 'Jumlah Persediaan',
+              },
+            },
+            y: {
+              title: {
+                display: true,
+                text: 'Derajat Keanggotaan',
+              },
+              min: 0,
+              max: 1,
+            },
+          },
+        },
+      });
     },
   },
   mounted() {
-    this.initializeChart();
+    this.fetchFuzzificationData();
   },
 };
 </script>

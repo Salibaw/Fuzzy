@@ -1,5 +1,11 @@
 # fuzzy-logic
 
+## Install package for python
+```
+pip install numpy
+pip install
+```
+
 ## Project setup
 ```
 npm install
