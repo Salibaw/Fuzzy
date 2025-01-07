@@ -1,58 +1,139 @@
 <template>
-  <div class="hello">
-    <h1>{{ msg }}</h1>
-    <p>
-      For a guide and recipes on how to configure / customize this project,<br>
-      check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener">vue-cli documentation</a>.
-    </p>
-    <h3>Installed CLI Plugins</h3>
-    <ul>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-babel" target="_blank" rel="noopener">babel</a></li>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-eslint" target="_blank" rel="noopener">eslint</a></li>
-    </ul>
-    <h3>Essential Links</h3>
-    <ul>
-      <li><a href="https://vuejs.org" target="_blank" rel="noopener">Core Docs</a></li>
-      <li><a href="https://forum.vuejs.org" target="_blank" rel="noopener">Forum</a></li>
-      <li><a href="https://chat.vuejs.org" target="_blank" rel="noopener">Community Chat</a></li>
-      <li><a href="https://twitter.com/vuejs" target="_blank" rel="noopener">Twitter</a></li>
-      <li><a href="https://news.vuejs.org" target="_blank" rel="noopener">News</a></li>
-    </ul>
-    <h3>Ecosystem</h3>
-    <ul>
-      <li><a href="https://router.vuejs.org" target="_blank" rel="noopener">vue-router</a></li>
-      <li><a href="https://vuex.vuejs.org" target="_blank" rel="noopener">vuex</a></li>
-      <li><a href="https://github.com/vuejs/vue-devtools#vue-devtools" target="_blank" rel="noopener">vue-devtools</a></li>
-      <li><a href="https://vue-loader.vuejs.org" target="_blank" rel="noopener">vue-loader</a></li>
-      <li><a href="https://github.com/vuejs/awesome-vue" target="_blank" rel="noopener">awesome-vue</a></li>
-    </ul>
+  <div class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-600 via-indigo-500 to-purple-600 text-gray-800">
+    <div class="bg-white shadow-2xl rounded-2xl p-10 max-w-lg w-full transform transition-transform hover:scale-105">
+      <h1 class="text-5xl font-extrabold text-center mb-8 text-indigo-600">Sistem Fuzzy Produksi</h1>
+      <div class="flex flex-col gap-6">
+        <div>
+          <label for="demand" class="block text-lg font-medium text-gray-700 mb-2">Jumlah Permintaan:</label>
+          <input
+            type="number"
+            v-model="demand"
+            id="demand"
+            class="border border-indigo-300 rounded-lg p-3 w-full focus:ring focus:ring-indigo-400 focus:border-indigo-500 shadow-sm"
+          />
+        </div>
+        <div>
+          <label for="stock" class="block text-lg font-medium text-gray-700 mb-2">Jumlah Persediaan:</label>
+          <input
+            type="number"
+            v-model="stock"
+            id="stock"
+            class="border border-indigo-300 rounded-lg p-3 w-full focus:ring focus:ring-indigo-400 focus:border-indigo-500 shadow-sm"
+          />
+        </div>
+        <button
+          @click="calculateProduction"
+          class="bg-indigo-600 text-white font-bold py-3 rounded-lg w-full hover:bg-indigo-700 transition-transform transform hover:scale-105 shadow-md"
+        >
+          Hitung Produksi
+        </button>
+        <button
+          @click="resetForm"
+          class="bg-gray-300 text-gray-700 font-bold py-3 rounded-lg w-full mt-4 hover:bg-gray-400 transition-transform transform hover:scale-105 shadow-md"
+        >
+          Reset
+        </button>
+      </div>
+      <div v-if="production !== null" class="mt-8 text-center">
+        <h2 class="text-2xl font-semibold text-gray-800">
+          Produksi yang Disarankan:
+          <span class="text-indigo-600 text-3xl font-bold">{{ production }}</span>
+        </h2>
+      </div>
+      <div v-if="production !== null" class="mt-10">
+        <canvas id="chart" width="400" height="200"></canvas>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
+import { Chart, registerables } from 'chart.js';
+Chart.register(...registerables);
+
 export default {
-  name: 'HelloWorld',
-  props: {
-    msg: String
-  }
-}
+  data() {
+    return {
+      stock: 0,
+      demand: 0,
+      production: null,
+      chart: null,
+    };
+  },
+  methods: {
+    calculateProduction() {
+      const stockLevel = this.fuzzyStock(this.stock);
+      const demandLevel = this.fuzzyDemand(this.demand);
+      this.production = this.defuzzify(stockLevel, demandLevel);
+      this.updateChart();
+    },
+    fuzzyStock(stock) {
+      if (stock <= 300) return 'Minim';
+      else if (stock <= 400) return 'Sedang';
+      else return 'Banyak';
+    },
+    fuzzyDemand(demand) {
+      if (demand <= 3000) return 'Rendah';
+      else if (demand <= 4000) return 'Sedang';
+      else return 'Tinggi';
+    },
+    defuzzify(stockLevel, demandLevel) {
+      const productionRules = {
+        Minim: { Rendah: 'Kecil', Sedang: 'Tidak Produksi', Tinggi: 'Tidak Produksi' },
+        Sedang: { Rendah: 'Kecil', Sedang: 'Kecil', Tinggi: 'Tidak Produksi' },
+        Banyak: { Rendah: 'Sedang', Sedang: 'Kecil', Tinggi: 'Besar' },
+      };
+
+      return productionRules[stockLevel][demandLevel];
+    },
+    initializeChart() {
+      const ctx = document.getElementById('chart').getContext('2d');
+      this.chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Stok', 'Permintaan', 'Produksi'],
+          datasets: [
+            {
+              label: 'Nilai',
+              data: [this.stock, this.demand, 0],
+              backgroundColor: ['#4f46e5', '#9333ea', '#ec4899'],
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              display: false,
+            },
+          },
+        },
+      });
+    },
+    updateChart() {
+      if (this.chart) {
+        this
+        
+        
+        .chart.data.datasets[0].data = [this.stock, this.demand, this.production || 0];
+        this.chart.update();
+      }
+    },
+    resetForm() {
+      this.stock = 0;
+      this.demand = 0;
+      this.production = null;
+      this.updateChart();
+    },
+  },
+  mounted() {
+    this.initializeChart();
+  },
+};
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
-h3 {
-  margin: 40px 0 0;
-}
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-li {
-  display: inline-block;
-  margin: 0 10px;
-}
-a {
-  color: #42b983;
+body {
+  font-family: 'Inter', sans-serif;
 }
 </style>
