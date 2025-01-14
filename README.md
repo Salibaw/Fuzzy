@@ -5,7 +5,11 @@
 pip install numpy
 pip install -U scikit-fuzzy
 python -m pip install -U matplotlib
+<<<<<<< HEAD
 pip instal Flask-Cors
+=======
+pip install Flask-Cors
+>>>>>>> 46173e281307b7a7fd6608b12cceb3959b601174
 ```
 
 ## Project setup
