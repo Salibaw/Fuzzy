@@ -3,7 +3,9 @@
 ## Install package for python
 ```
 pip install numpy
-pip install
+pip install -U scikit-fuzzy
+python -m pip install -U matplotlib
+pip instal Flask-Cors
 ```
 
 ## Project setup

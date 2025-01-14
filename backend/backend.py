@@ -25,81 +25,89 @@ produksi_sedang = fuzz.trimf(produksi, [1000, 3500, 5000])
 produksi_besar = fuzz.trimf(produksi, [4000, 7000, 7000])
 produksi_tidak = fuzz.trimf(produksi, [0, 0, 0])
 
-# print(permintaan_rendah)
+print(permintaan_rendah)
 
 def hitung_produksi(permintaan_input, persediaan_input):
     # Hitung derajat keanggotaan
-    mu_perm_rendah = fuzz.interp_membership(permintaan, permintaan_rendah, permintaan_input)
-    mu_perm_sedang = fuzz.interp_membership(permintaan, permintaan_sedang, permintaan_input)
-    mu_perm_banyak = fuzz.interp_membership(permintaan, permintaan_banyak, permintaan_input)
-    
-    max_mu_perm = max(mu_perm_rendah, mu_perm_sedang, mu_perm_banyak)
+    dk_perm_rendah = fuzz.interp_membership(permintaan, permintaan_rendah, permintaan_input)
+    dk_perm_sedang = fuzz.interp_membership(permintaan, permintaan_sedang, permintaan_input)
+    dk_perm_banyak = fuzz.interp_membership(permintaan, permintaan_banyak, permintaan_input)
 
-    mu_pers_minim = fuzz.interp_membership(persediaan, persediaan_minim, persediaan_input)
-    mu_pers_sedang = fuzz.interp_membership(persediaan, persediaan_sedang, persediaan_input)
-    mu_pers_banyak = fuzz.interp_membership(persediaan, persediaan_banyak, persediaan_input)
+    dk_pers_minim = fuzz.interp_membership(persediaan, persediaan_minim, persediaan_input)
+    dk_pers_sedang = fuzz.interp_membership(persediaan, persediaan_sedang, persediaan_input)
+    dk_pers_banyak = fuzz.interp_membership(persediaan, persediaan_banyak, persediaan_input)
 
-    max_mu_pers = max(mu_pers_minim, mu_pers_sedang, mu_pers_banyak)
-    
-    # Aturan fuzzy dengan metode Tsukamoto
-    alpha1 = min(mu_perm_rendah, mu_pers_minim)
-    z1 = fuzz.defuzz(produksi, produksi_kecil, 'centroid')
+    # Fungsi menghitung z berdasarkan alpha dan jenis produksi
+    def calculate_z(alpha, jenis):
+        if jenis == "kecil":
+            return 2000 - alpha * (2000 - 0)
+        elif jenis == "sedang":
+            return 3500 - alpha * (3500 - 1000)
+        elif jenis == "besar":
+            return 7000 - alpha * (7000 - 4000)
+        elif jenis == "tidak":
+            return 0
 
-    alpha2 = min(mu_perm_rendah, mu_pers_sedang)
-    z2 = fuzz.defuzz(produksi, produksi_tidak, 'centroid')
+    # Hitung α dan z untuk setiap aturan
+    alpha1 = min(dk_perm_rendah, dk_pers_minim)
+    z1 = calculate_z(alpha1, "kecil")
 
-    alpha3 = min(mu_perm_rendah, mu_pers_banyak)
-    z3 = fuzz.defuzz(produksi, produksi_tidak, 'centroid')
+    alpha2 = min(dk_perm_rendah, dk_pers_sedang)
+    z2 = calculate_z(alpha2, "tidak")
 
-    alpha4 = min(mu_perm_sedang, mu_pers_minim)
-    z4 = fuzz.defuzz(produksi, produksi_sedang, 'centroid')
-    
-    alpha5 = min(mu_perm_sedang, mu_pers_sedang)
-    z5 = fuzz.defuzz(produksi, produksi_kecil, 'centroid')
+    alpha3 = min(dk_perm_rendah, dk_pers_banyak)
+    z3 = calculate_z(alpha3, "tidak")
 
-    alpha6 = min(mu_perm_sedang, mu_pers_banyak)
-    z6 = fuzz.defuzz(produksi, produksi_tidak, 'centroid')
+    alpha4 = min(dk_perm_sedang, dk_pers_minim)
+    z4 = calculate_z(alpha4, "sedang")
 
-    alpha7 = min(mu_perm_banyak, mu_pers_minim)
-    z7 = fuzz.defuzz(produksi, produksi_besar, 'centroid')
+    alpha5 = min(dk_perm_sedang, dk_pers_sedang)
+    z5 = calculate_z(alpha5, "kecil")
 
-    alpha8 = min(mu_perm_banyak, mu_pers_sedang)
-    z8 = fuzz.defuzz(produksi, produksi_sedang, 'centroid')
+    alpha6 = min(dk_perm_sedang, dk_pers_banyak)
+    z6 = calculate_z(alpha6, "tidak")
 
-    alpha9 = min(mu_perm_banyak, mu_pers_banyak)
-    z9 = fuzz.defuzz(produksi, produksi_kecil, 'centroid')
+    alpha7 = min(dk_perm_banyak, dk_pers_minim)
+    z7 = calculate_z(alpha7, "besar")
 
-    # Agregasi output
+    alpha8 = min(dk_perm_banyak, dk_pers_sedang)
+    z8 = calculate_z(alpha8, "sedang")
+
+    alpha9 = min(dk_perm_banyak, dk_pers_banyak)
+    z9 = calculate_z(alpha9, "kecil")
+
+
+    # Agregasi
     total_alpha = alpha1 + alpha2 + alpha3 + alpha4 + alpha5 + alpha6 + alpha7 + alpha8 + alpha9
     z_aggregated = (
-            alpha1 * z1 + alpha2 * z2 + alpha3 * z3 +
-            alpha4 * z4 + alpha5 * z5 + alpha6 * z6 +
-            alpha7 * z7 + alpha8 * z8 + alpha9 * z9
-        ) / total_alpha
+        alpha1 * z1 + alpha2 * z2 + alpha3 * z3 +
+        alpha4 * z4 + alpha5 * z5 + alpha6 * z6 +
+        alpha7 * z7 + alpha8 * z8 + alpha9 * z9
+    ) / total_alpha
 
     return z_aggregated, {
         'him_permintaan': {
-            'rendah': mu_perm_rendah,
-            'sedang': mu_perm_sedang,
-            'banyak': mu_perm_banyak,
-            # 'max_membership': max_mu_perm
+            'rendah': dk_perm_rendah,
+            'sedang': dk_perm_sedang,
+            'banyak': dk_perm_banyak,
         },
         'him_persediaan': {
-            'minim': mu_pers_minim,
-            'sedang': mu_pers_sedang,
-            'banyak': mu_pers_banyak,
-            # 'max_membership': max_mu_pers
+            'minim': dk_pers_minim,
+            'sedang': dk_pers_sedang,
+            'banyak': dk_pers_banyak,
         },
         'alpha_rules': {
-            'R1': alpha1, 'R2': alpha2, 'R3': alpha3,
-            'R4': alpha4, 'R5': alpha5, 'R6': alpha6,
-            'R7': alpha7, 'R8': alpha8, 'R9': alpha9,
-            'z1': z1, 'z2': z2, 'z3': z3,
-            'z4': z4, 'z5': z5, 'z6': z6,
-            'z7': z7, 'z8': z8, 'z9': z9
-            },
+            'R1': alpha1, 'z1': z1,
+            'R2': alpha2, 'z2': z2,
+            'R3': alpha3, 'z3': z3,
+            'R4': alpha4, 'z4': z4,
+            'R5': alpha5, 'z5': z5,
+            'R6': alpha6, 'z6': z6,
+            'R7': alpha7, 'z7': z7,
+            'R8': alpha8, 'z8': z8,
+            'R9': alpha9, 'z9': z9,
+        }
     }
-
 
 @app.route('/prediksi', methods=['POST'])
 def prediksi():
@@ -117,8 +125,7 @@ def prediksi():
         'permintaan' : permintaan_input,
         'persediaan' : persediaan_input,
         'produksi': round(produksi),
-        'derajat_keanggotaan': derajat_keanggotaan,
-        # 'data_chart': data_chart        
+        'derajat_keanggotaan': derajat_keanggotaan,  
         })
 
 @app.route('/fuzzification', methods=['GET'])
@@ -145,7 +152,6 @@ def fuzzification():
     }
     if request.method == 'GET':
         return jsonify(data)
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=3000, debug=True)
